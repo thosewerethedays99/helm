@@ -4,9 +4,9 @@ Blackbox exporter Helm chart for kube-prometheus-stack
 
 1.Install Blackbox exporter chart with Helm 3
 ```
-	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	helm repo update
-	helm -n monitoring install prometheus-blackbox-exporter prometheus-community/prometheus-blackbox-exporter -f kube-prometheus-stack-blackbox-exporter-custom-values.yaml
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm -n monitoring install prometheus-blackbox-exporter prometheus-community/prometheus-blackbox-exporter -f kube-prometheus-stack-blackbox-exporter-custom-values.yaml
 ```
 
 2.Install kube-prometheus-stack with custom values
