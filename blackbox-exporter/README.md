@@ -1,4 +1,4 @@
-Blackbox exporter Helm chart for kube-prometheus-stack
+Blackbox exporter Helm chart for kube-prometheus-stack with Alert Manager sending alerts to Slack
 
 #Implementation
 
