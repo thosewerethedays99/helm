@@ -33,7 +33,8 @@ prometheus:
       - job_name: prometheus-blackbox-exporter
         metrics_path: /probe
         params:
-          module: [http_2xx]
+          module: 
+            - http_ok #prometheus-blackbox-exporter-custom-values.yaml
         static_configs:
           - targets: 
             - https://amazon.co.uk
