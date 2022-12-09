@@ -1,3 +1,24 @@
+#Define persistent storage for Prometheus (PVC)
+#https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+
+##Monitor HTTP URL status with additionalPrometheusRulesMap
+##This rule will appears in https://<Prometheus_URL>/rules
+##Rules ref https://lyz-code.github.io/blue-book/devops/prometheus/blackbox_exporter/
+additionalPrometheusRulesMap:
+  url.blackbox.rules:
+    groups:
+    - name: url.blackbox.rules
+      rules:
+      - alert: BlackboxProbeFailed
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: URL is DOWN (URL {{ $labels.instance }})
+          description: URL failed\nVALUE = {{ $value }}
+
+##Prometheus settings with Persistent Volume Claim
 prometheus:
   prometheusSpec:
     storageSpec:
@@ -15,8 +36,9 @@ prometheus:
           module: [http_2xx]
         static_configs:
           - targets: 
+            - https://amazon.co.uk
+            - https://vnexpress.net
             - https://google.com
-            - https://amazon.com
         relabel_configs:
         - source_labels: [__address__]
           target_label: __param_target
@@ -24,3 +46,79 @@ prometheus:
           target_label: instance
         - target_label: __address__
           replacement: prometheus-blackbox-exporter.monitoring:9115
+             
+             
+alertmanager:
+  ## Deploy alertmanager
+  ## https://gist.github.com/l13t/d432b63641b6972b1f58d7c037eec88f
+  enabled: true
+  ## Service account for Alertmanager to use.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  ##
+  serviceAccount:
+    create: true
+    name: ""
+  ## Configure pod disruption budgets for Alertmanager
+  ## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget
+  ## This configuration is immutable once created and will require the PDB to be deleted to be changed
+  ## https://github.com/kubernetes/kubernetes/issues/45398
+  ##
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: ""
+  ## Alertmanager configuration directives
+  ## ref: https://prometheus.io/docs/alerting/configuration/#configuration-file
+  ##      https://prometheus.io/webtools/alerting/routing-tree-editor/
+  ##
+  
+  ##integrate with slack
+  config:
+    global:
+      resolve_timeout: 5m
+      slack_api_url: "<slack_webhook_url>" 
+    route:
+      group_by: ['job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      routes:
+      #mute unused alerts  
+      - match:
+          alertname: DeadMansSwitch
+        receiver: 'null'
+      - match:
+          alertname: Watchdog
+        receiver: 'null'
+      - match:
+          alertname: CPUThrottlingHigh
+        receiver: 'null'
+      - match:
+          alertname: KubeMemoryOvercommit
+        receiver: 'null'
+      - match:
+          alertname: KubeCPUOvercommit
+        receiver: 'null'
+      - match:
+          alertname: KubeletTooManyPods
+        receiver: 'null'
+      #enable slack receiver  
+      - match:
+        receiver: 'slack'
+        continue: true
+    receivers:
+    - name: 'null'
+    - name: 'slack'
+      slack_configs:
+      - channel: '#incident'
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Event Notification'
+        text: >-
+          {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+            *Description:* {{ .Annotations.description }}
+            *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+            *Details:*
+            {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+            {{ end }}
+          {{ end }}
